@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Last-Mile Whisper - Geo-fenced voice landmark processing infrastructure.
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.11
+
+Resources:
+
+  VoiceAudioBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: lastmile-whisper-voice-audio
+
+  DeliveriesTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: Deliveries
+      PrimaryKey:
+        Name: package_id
+        Type: String
+
+  WhisperProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: WhisperProcessor
+      Handler: index.lambda_handler
+      Runtime: python3.11
+      CodeUri: src/
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DeliveriesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DeliveriesTable
+        - S3ReadPolicy:
+            BucketName: lastmile-whisper-voice-audio
+      Events:
+        VoiceUploadEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref VoiceAudioBucket
+            Events: s3:ObjectCreated:*
+
+Outputs:
+  VoiceAudioBucketName:
+    Description: S3 bucket for customer voice note uploads
+    Value: !Ref VoiceAudioBucket
+
+  DeliveriesTableName:
+    Description: DynamoDB table storing delivery state
+    Value: !Ref DeliveriesTable
+
+  WhisperProcessorFunctionName:
+    Description: Lambda function processing voice notes
+    Value: !Ref WhisperProcessor
