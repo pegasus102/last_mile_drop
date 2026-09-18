@@ -7,18 +7,18 @@
 <style>
 
   :root {
-    --bg: #0f172a;
-    --card: #1e293b;
-    --card-border: #2d3f57;
-    --text: #f8fafc;
-    --text-muted: #94a3b8;
-    --accent-purple: #7c3aed;
-    --accent-purple-dim: #2e1f4d;
-    --accent-green: #22c55e;
-    --accent-yellow: #eab308;
-    --accent-red: #ef4444;
-    --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
-    --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --bg: #eaeded;
+    --card: #ffffff;
+    --card-border: #d5d9d9;
+    --text: #0f1111;
+    --text-muted: #565959;
+    --accent-purple: #007185;
+    --accent-purple-dim: #e6f4f7;
+    --accent-green: #007600;
+    --accent-yellow: #f7ca00;
+    --accent-red: #c40000;
+    --font-display: 'Amazon Ember', 'Segoe UI', system-ui, sans-serif;
+    --font-body: 'Amazon Ember', 'Segoe UI', system-ui, sans-serif;
   }
 
   * {
@@ -50,28 +50,32 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding-bottom: 4px;
+    padding: 14px 16px;
+    background: #131921;
+    border-radius: 10px;
+    margin: -4px -4px 0;
   }
 
   .hud-title {
     font-family: var(--font-display);
-    font-size: 1.35rem;
+    font-size: 1.2rem;
     font-weight: 600;
     letter-spacing: -0.01em;
     margin: 0;
     display: flex;
     align-items: center;
     gap: 8px;
+    color: #ffffff;
   }
 
   .shield-badge {
-    background: var(--accent-purple-dim);
-    color: #c4b5fd;
-    border: 1px solid var(--accent-purple);
+    background: #232f3e;
+    color: #f7ca00;
+    border: 1px solid #37475a;
     border-radius: 999px;
     padding: 5px 12px;
     font-size: 0.72rem;
-    font-weight: 600;
+    font-weight: 700;
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -84,7 +88,7 @@
     height: 6px;
     border-radius: 50%;
     background: var(--accent-green);
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+    box-shadow: 0 0 0 3px rgba(0, 118, 0, 0.25);
   }
 
   /* Card */
@@ -92,14 +96,15 @@
   .card {
     background: var(--card);
     border: 1px solid var(--card-border);
-    border-radius: 14px;
+    border-radius: 8px;
     padding: 18px;
+    box-shadow: 0 2px 5px rgba(15, 17, 17, 0.08);
   }
 
   .card h2 {
     font-family: var(--font-display);
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 700;
     margin: 0 0 12px;
     color: var(--text);
   }
@@ -126,8 +131,8 @@
 
   #distance-input {
     flex: 1;
-    background: var(--bg);
-    border: 1px solid var(--card-border);
+    background: #ffffff;
+    border: 1px solid #888c8c;
     color: var(--text);
     border-radius: 8px;
     padding: 10px 12px;
@@ -139,6 +144,7 @@
   #distance-input:focus {
     outline: none;
     border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(0, 113, 133, 0.15);
   }
 
   .unit-suffix {
@@ -160,54 +166,104 @@
   }
 
   .shield-status.locked {
-    background: rgba(239, 68, 68, 0.12);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: #fdf0f0;
+    color: var(--accent-red);
+    border: 1px solid #f3c6c6;
   }
 
   .shield-status.landmarks-only {
-    background: rgba(234, 179, 8, 0.1);
-    color: #fde68a;
-    border: 1px solid rgba(234, 179, 8, 0.3);
+    background: #fff8e1;
+    color: #8a6200;
+    border: 1px solid #f0dca0;
   }
 
   .shield-status.doorbell-unlocked {
-    background: rgba(34, 197, 94, 0.1);
-    color: #86efac;
-    border: 1px solid rgba(34, 197, 94, 0.3);
+    background: #eaf6ea;
+    color: var(--accent-green);
+    border: 1px solid #bfe3bf;
   }
 
-  /* Landmark Tags */
+  /* Delivery Route & Details (New Structured Flexibility Styles) */
 
-  #landmark-tags {
+  .route-container {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .waypoint-list {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
   }
 
-  .tag-placeholder,
-  .landmark-tag {
-    border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 0.8rem;
+  .waypoint-item {
+    background: var(--accent-purple-dim);
+    border-left: 4px solid var(--accent-purple);
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: #005a6b;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .waypoint-item::before {
+    content: "📍";
+  }
+
+  .destination-box {
+    background: #f8f9fa;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .dest-field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dest-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  .dest-value {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .instructions-box {
+    background: #fff8e1;
+    border: 1px solid #f0dca0;
+    color: #8a6200;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.4;
   }
 
   .tag-placeholder {
     border: 1px dashed var(--card-border);
     color: var(--text-muted);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    display: inline-block;
   }
 
-  .landmark-tag {
-    border: 1px solid var(--accent-purple);
-    background: var(--accent-purple-dim);
-    color: #ddd6fe;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 600;
-  }
-
-  /* Doorbell Buttons */
+  /* Doorbell Buttons & DNC Warning */
 
   .doorbell-actions {
     display: flex;
@@ -218,10 +274,10 @@
   button.hud-btn {
     font-family: var(--font-body);
     font-size: 0.9rem;
-    font-weight: 600;
-    border-radius: 10px;
-    padding: 14px 16px;
-    border: none;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 13px 16px;
+    border: 1px solid transparent;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -231,37 +287,40 @@
   }
 
   button.hud-btn:hover:not(:disabled) {
-    filter: brightness(1.08);
+    filter: brightness(0.97);
   }
 
   button.hud-btn:active:not(:disabled) {
-    filter: brightness(0.95);
+    filter: brightness(0.93);
   }
 
   button.hud-btn:disabled {
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.65;
   }
 
   .btn-doorbell.state-locked {
-    background: #334155;
+    background: #f0f2f2;
     color: var(--text-muted);
+    border-color: #d5d9d9;
   }
 
   .btn-doorbell.state-yellow {
-    background: var(--accent-yellow);
-    color: #1c1502;
+    background: linear-gradient(to bottom, #f7dfa5, var(--accent-yellow));
+    color: #0f1111;
+    border-color: #a88734 #9c7e31 #846a29;
   }
 
   .btn-doorbell.state-green {
     background: var(--accent-green);
-    color: #052e14;
+    color: #ffffff;
+    border-color: #005c00;
   }
 
   .btn-call {
-    background: transparent;
+    background: #ffffff;
     color: var(--text);
-    border: 1px solid var(--card-border);
+    border: 1px solid #888c8c;
     display: none;
   }
 
@@ -269,16 +328,34 @@
     display: flex;
   }
 
+  .dnc-warning {
+    background: #fdf0f0;
+    color: var(--accent-red);
+    border: 1px solid #f3c6c6;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .dnc-warning.visible {
+    display: flex;
+  }
+
   /* Status Log */
 
   .status-log {
-    background: #0b1424;
+    background: #fafafa;
     border: 1px solid var(--card-border);
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 12px 14px;
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: #565959;
     max-height: 160px;
     overflow-y: auto;
     display: flex;
@@ -287,7 +364,111 @@
   }
 
   .status-log .log-line span.tag {
-    color: #64748b;
+    color: #007185;
+  }
+
+  /* Admin Simulator Panel (desktop demo control, Amazon-themed) */
+
+  .admin-panel {
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    width: 280px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 5px rgba(15, 17, 17, 0.08);
+    font-family: var(--font-body);
+    z-index: 1000;
+  }
+
+  .admin-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #131921;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: -4px -4px 14px;
+  }
+
+  .admin-panel-header .admin-badge {
+    background: #232f3e;
+    color: #f7ca00;
+    border: 1px solid #37475a;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-left: auto;
+  }
+
+  .admin-panel-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .admin-field-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0 0 6px;
+    display: block;
+    font-weight: 600;
+  }
+
+  #package-select {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #888c8c;
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.85rem;
+    font-family: var(--font-body);
+    margin-bottom: 12px;
+  }
+
+  #package-select:focus {
+    outline: none;
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(0, 113, 133, 0.15);
+  }
+
+  #refresh-list-btn {
+    width: 100%;
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 10px 12px;
+    border: 1px solid #a88734;
+    cursor: pointer;
+    background: linear-gradient(to bottom, #f7dfa5, var(--accent-yellow));
+    color: #0f1111;
+    transition: filter 0.15s ease;
+  }
+
+  #refresh-list-btn:hover {
+    filter: brightness(0.97);
+  }
+
+  #refresh-list-btn:active {
+    filter: brightness(0.93);
+  }
+
+  .admin-panel-note {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin: 10px 0 0;
+  }
+
+  @media (max-width: 900px) {
+    .admin-panel {
+      display: none;
+    }
   }
 
 </style>
@@ -311,13 +492,12 @@
       <div class="shield-status" id="shield-status"></div>
     </section>
 
-    <section class="card" id="landmark-section">
-      <h2>Landmark Tags</h2>
+    <!-- New Delivery Route & Details Section -->
+    <section class="card" id="route-section">
+      <h2>Delivery Route & Details</h2>
       <p class="card-subtext">Unlocked within 500m of the delivery pin.</p>
-      <div id="landmark-tags">
-        <span class="tag-placeholder">Landmark —</span>
-        <span class="tag-placeholder">Turn —</span>
-        <span class="tag-placeholder">Door Color —</span>
+      <div id="route-content" class="route-container">
+        <span class="tag-placeholder">Route Details Hidden —</span>
       </div>
     </section>
 
@@ -331,6 +511,9 @@
         <button class="hud-btn btn-call" id="call-btn">
           📞 Call Customer Directly
         </button>
+        <div id="dnc-warning-box" class="dnc-warning">
+          🔕 DO NOT CALL CUSTOMER
+        </div>
       </div>
     </section>
 
@@ -343,26 +526,109 @@
 
   </div>
 
+  <!-- Admin Simulator Panel: desktop-only demo control, not part of the driver-facing .shell -->
+  <div class="admin-panel" id="admin-panel">
+    <div class="admin-panel-header">
+      <p class="admin-panel-title">🛠️ Admin Simulator</p>
+      <span class="admin-badge">DEMO</span>
+    </div>
+    <label class="admin-field-label" for="package-select">Simulate Package</label>
+    <select id="package-select">
+      <option value="">Loading packages…</option>
+    </select>
+    <button id="refresh-list-btn">🔄 Refresh List</button>
+    <p class="admin-panel-note">Switches the mobile HUD's active delivery for demo purposes.</p>
+  </div>
+
 <script>
 
   const distanceInput = document.getElementById('distance-input');
   const shieldStatus = document.getElementById('shield-status');
-  const landmarkTags = document.getElementById('landmark-tags');
+  const routeContent = document.getElementById('route-content');
   const pingBtn = document.getElementById('ping-btn');
   const callBtn = document.getElementById('call-btn');
+  const dncWarningBox = document.getElementById('dnc-warning-box');
   const statusLog = document.getElementById('status-log');
+  const packageSelect = document.getElementById('package-select');
+  const refreshListBtn = document.getElementById('refresh-list-btn');
 
   const CHIME_DURATION_SECONDS = 30;
   const MAX_PINGS = 2;
+  const API_ENDPOINT = '/'; // Backend Lambda endpoint (FETCH_HUD / LIST_DELIVERIES)
 
   let pingCount = 0;
   let countdownTimer = null;
+  let fetchedLandmarks = null; // Will store dynamic Gemini output
 
-  const SAMPLE_LANDMARKS = [
-    { icon: '🌳', label: 'Peepal Tree' },
-    { icon: '↩️', label: 'Left after tree' },
-    { icon: '🚪', label: 'Red Door' },
-  ];
+  // Fetches the list of available package IDs from the backend
+  async function fetchPackageList() {
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'LIST_DELIVERIES' }),
+      });
+      const data = await response.json();
+      const packageIds = data.package_ids || [];
+
+      packageSelect.innerHTML = '';
+
+      if (packageIds.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No packages found';
+        packageSelect.appendChild(opt);
+      } else {
+        packageIds.forEach((id) => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = id;
+          packageSelect.appendChild(opt);
+        });
+      }
+
+      logLine('admin', `Loaded ${packageIds.length} package(s) into simulator.`);
+      return packageIds;
+
+    } catch (e) {
+      logLine('error', 'Failed to fetch package list from backend.');
+      packageSelect.innerHTML = '<option value="">Unavailable</option>';
+      return [];
+    }
+  }
+
+  // Fetch real extracted landmarks from backend on load.
+  async function loadDeliveryData(packageId) {
+    try {
+      if (packageId) {
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'FETCH_HUD',
+            package_id: packageId,
+            distance_meters: parseFloat(distanceInput.value) || 0,
+          }),
+        });
+        const data = await response.json();
+        fetchedLandmarks = data.landmarks;
+        logLine('api', `Loaded dynamic Gemini landmarks for package: ${packageId}`);
+      } else {
+        const response = await fetch('current_delivery.json');
+        const data = await response.json();
+        fetchedLandmarks = data.landmarks;
+        logLine('api', `Loaded dynamic Gemini landmarks for package: ${data.package_id}`);
+      }
+    } catch (e) {
+      logLine('error', 'Failed to fetch dynamic landmarks, using fallbacks.');
+      fetchedLandmarks = {
+        waypoints: ["Default Landmark"],
+        destination: { house_number: null, floor: null, door_details: "Default Door" },
+        flags: { do_not_call: false },
+        special_instructions: null
+      };
+    }
+  }
 
   function logLine(tag, message) {
     const line = document.createElement('div');
@@ -372,30 +638,57 @@
     statusLog.scrollTop = statusLog.scrollHeight;
   }
 
-  function renderLandmarkTags(unlocked) {
-    landmarkTags.innerHTML = '';
+  function renderRouteDetails(unlocked) {
+    routeContent.innerHTML = '';
 
     if (!unlocked) {
-      const placeholders = ['Landmark —', 'Turn —', 'Door Color —'];
-      placeholders.forEach((text) => {
-        const span = document.createElement('span');
-        span.className = 'tag-placeholder';
-        span.textContent = text;
-        landmarkTags.appendChild(span);
-      });
+      routeContent.innerHTML = '<span class="tag-placeholder">Route Details Hidden —</span>';
       return;
     }
 
-    SAMPLE_LANDMARKS.forEach((tag) => {
-      const span = document.createElement('span');
-      span.className = 'landmark-tag';
-      span.innerHTML = `${tag.icon} ${tag.label}`;
-      landmarkTags.appendChild(span);
-    });
+    if (!fetchedLandmarks) return;
+
+    // 1. Waypoints List
+    if (fetchedLandmarks.waypoints && fetchedLandmarks.waypoints.length > 0) {
+      const wpList = document.createElement('div');
+      wpList.className = 'waypoint-list';
+      fetchedLandmarks.waypoints.forEach(wp => {
+        const wpItem = document.createElement('div');
+        wpItem.className = 'waypoint-item';
+        wpItem.textContent = wp;
+        wpList.appendChild(wpItem);
+      });
+      routeContent.appendChild(wpList);
+    }
+
+    // 2. Destination Box
+    const dest = fetchedLandmarks.destination;
+    if (dest && (dest.house_number || dest.floor || dest.door_details)) {
+      const destBox = document.createElement('div');
+      destBox.className = 'destination-box';
+
+      if (dest.house_number) {
+        destBox.innerHTML += `<div class="dest-field"><span class="dest-label">House / Apt</span><span class="dest-value">${dest.house_number}</span></div>`;
+      }
+      if (dest.floor) {
+        destBox.innerHTML += `<div class="dest-field"><span class="dest-label">Floor</span><span class="dest-value">${dest.floor}</span></div>`;
+      }
+      if (dest.door_details) {
+        destBox.innerHTML += `<div class="dest-field"><span class="dest-label">Door Details</span><span class="dest-value">${dest.door_details}</span></div>`;
+      }
+      routeContent.appendChild(destBox);
+    }
+
+    // 3. Special Instructions Box
+    if (fetchedLandmarks.special_instructions) {
+      const instBox = document.createElement('div');
+      instBox.className = 'instructions-box';
+      instBox.innerHTML = `⚠️ <b>Notes:</b> ${fetchedLandmarks.special_instructions}`;
+      routeContent.appendChild(instBox);
+    }
   }
 
   function setDoorbellState(state) {
-    // state: 'locked' | 'yellow' | 'green'
     pingBtn.classList.remove('state-locked', 'state-yellow', 'state-green');
 
     if (state === 'locked') {
@@ -420,6 +713,7 @@
     }
     pingCount = 0;
     callBtn.classList.remove('visible');
+    dncWarningBox.classList.remove('visible');
   }
 
   function updateHUD() {
@@ -435,7 +729,7 @@
     if (distance > 500) {
       shieldStatus.classList.add('locked');
       shieldStatus.textContent = '🔒 Cedar Shield: Privacy Locked (>500m)';
-      renderLandmarkTags(false);
+      renderRouteDetails(false);
       setDoorbellState('locked');
       resetDoorbellFlow();
       logLine('cedar', `DENIED — distance ${distance}m exceeds 500m radius.`);
@@ -443,7 +737,7 @@
     } else if (distance > 20 && distance <= 500) {
       shieldStatus.classList.add('landmarks-only');
       shieldStatus.textContent = '🟡 Landmarks Unlocked — Doorbell Locked (>20m)';
-      renderLandmarkTags(true);
+      renderRouteDetails(true);
       setDoorbellState('yellow');
       resetDoorbellFlow();
       logLine('cedar', `ALLOWED (ReadLandmark) — distance ${distance}m within 500m radius.`);
@@ -452,7 +746,7 @@
     } else {
       shieldStatus.classList.add('doorbell-unlocked');
       shieldStatus.textContent = '🟢 Digital Doorbell Unlocked (≤20m)';
-      renderLandmarkTags(true);
+      renderRouteDetails(true);
       setDoorbellState('green');
       logLine('cedar', `ALLOWED by Cedar Policy — distance ${distance}m within 20m radius.`);
     }
@@ -490,12 +784,29 @@
       pingBtn.classList.add('state-locked');
       pingBtn.disabled = true;
       pingBtn.innerHTML = '🚫 Max Pings Exceeded';
-      callBtn.classList.add('visible');
-      logLine('doorbell', 'MAX_PINGS_EXCEEDED — direct call required.');
+      
+      // Enforce Do Not Call Logic
+      if (fetchedLandmarks && fetchedLandmarks.flags && fetchedLandmarks.flags.do_not_call) {
+        dncWarningBox.classList.add('visible');
+        callBtn.classList.remove('visible');
+        logLine('doorbell', 'MAX_PINGS_EXCEEDED — Call blocked by DO NOT CALL policy.');
+      } else {
+        callBtn.classList.add('visible');
+        dncWarningBox.classList.remove('visible');
+        logLine('doorbell', 'MAX_PINGS_EXCEEDED — direct call required.');
+      }
     } else {
       pingBtn.disabled = false;
       pingBtn.innerHTML = '🔄 Ping Once More (2nd Try)';
-      callBtn.classList.add('visible');
+      
+      // Enforce Do Not Call Logic even on retry state
+      if (fetchedLandmarks && fetchedLandmarks.flags && fetchedLandmarks.flags.do_not_call) {
+        dncWarningBox.classList.add('visible');
+        callBtn.classList.remove('visible');
+      } else {
+        callBtn.classList.add('visible');
+      }
+      
       logLine('doorbell', 'Doorbell available for a second attempt.');
     }
   }
@@ -508,7 +819,26 @@
   pingBtn.addEventListener('click', pingDoorbell);
   callBtn.addEventListener('click', callCustomer);
 
-  updateHUD();
+  // Admin Simulator Panel wiring
+  packageSelect.addEventListener('change', async () => {
+    const selectedId = packageSelect.value;
+    if (!selectedId) return;
+    logLine('admin', `Switching simulator to package: ${selectedId}`);
+    await loadDeliveryData(selectedId);
+    updateHUD();
+  });
+
+  refreshListBtn.addEventListener('click', () => {
+    fetchPackageList();
+  });
+
+  // Initialize: load the package list for the admin panel, then load
+  // the default delivery data and render the HUD.
+  fetchPackageList();
+
+  loadDeliveryData().then(() => {
+    updateHUD();
+  });
 
 </script>
 
