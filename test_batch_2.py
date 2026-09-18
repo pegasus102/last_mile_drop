@@ -9,7 +9,7 @@ os.environ["AWS_SECRET_ACCESS_KEY"] = "test"
 os.environ["DYNAMODB_ENDPOINT_URL"] = "http://localhost:4566"
 os.environ["TABLE_NAME"] = "Deliveries"
 
-sys.path.insert(0, '.aws-sam/build/WhisperProcessor')
+sys.path.insert(0, 'src')
 
 from bedrock_extractor import extract_landmarks
 from index import _get_dynamodb_table

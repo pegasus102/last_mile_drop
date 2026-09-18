@@ -23,7 +23,9 @@ SYSTEM_PROMPT = (
     '    "do_not_call": boolean\n'
     "  },\n"
     '  "special_instructions": "String with any extra driver notes, e.g. '
-    "'Take the lift, do not use stairs' (or null)\"\n"
+    "'Take the lift, do not use stairs' (or null)\",\n"
+    '  "driver_audio_script": "String with a clear, concise, 10 to 15 second '
+    'spoken summary in simple English or Hinglish for hands-free audio guidance"\n'
     "}\n\n"
     "Field guidance:\n"
     '- "waypoints": break the route description into an ordered list of short, '
@@ -41,7 +43,10 @@ SYSTEM_PROMPT = (
     "call me\", \"phone mat karo\"). Default to false otherwise.\n"
     '- "special_instructions": any operational note that doesn\'t fit elsewhere '
     "(e.g. lift/stairs guidance, dog on premises, gate codes, timing restrictions), "
-    "else null.\n\n"
+    "else null.\n"
+    '- "driver_audio_script": generate a natural-sounding, chronological script '
+    "that can be read aloud by a Text-to-Speech engine. Focus on the final route "
+    "and destination details, ignoring filler words or customer hesitations.\n\n"
     "Indian context handling:\n"
     "- Normalize regional/colloquial terms into their plain English navigation "
     "equivalents inside the JSON values, e.g. translate \"gali\" to \"street\" or "
@@ -59,6 +64,7 @@ SYSTEM_PROMPT = (
     "null.\n"
     "- \"waypoints\" must always be a JSON array, even if it contains only one "
     "item or is empty.\n"
+    "- \"driver_audio_script\" must always be a valid string, never null.\n"
 )
 
 
@@ -77,6 +83,7 @@ def _fallback_payload() -> dict:
             "do_not_call": False,
         },
         "special_instructions": None,
+        "driver_audio_script": "Proceed near Sharma Sweets and go behind the big Peepal tree. Look for the red gate.",
     }
 
 
@@ -109,12 +116,14 @@ def _ensure_schema(parsed: dict) -> dict:
     flags = {"do_not_call": do_not_call}
 
     special_instructions = parsed.get("special_instructions") or None
+    driver_audio_script = parsed.get("driver_audio_script") or "Follow the listed route waypoints to reach the destination."
 
     return {
         "waypoints": waypoints,
         "destination": destination,
         "flags": flags,
         "special_instructions": special_instructions,
+        "driver_audio_script": driver_audio_script,
     }
 
 
