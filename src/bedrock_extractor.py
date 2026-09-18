@@ -1,151 +1,147 @@
+import os
 import json
 import logging
-
-import boto3
+from google import genai
 
 logger = logging.getLogger(__name__)
 
-BEDROCK_MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0"
-BEDROCK_REGION = "us-east-1"
-
-REQUIRED_KEYS = ["landmark", "turn_instruction", "door_color", "audio_summary_hindi"]
-
 SYSTEM_PROMPT = (
-    "You are a navigation landmark extraction engine for last-mile delivery "
-    "in India. You will receive a raw voice transcript from a customer, "
-    "often in Hindi, a regional Indian language, or Hinglish (code-mixed "
-    "Hindi-English). Extract only the visual navigation details a delivery "
-    "driver needs.\n\n"
-    "Return ONLY a single valid JSON object with exactly these keys:\n"
-    '  "landmark": a short phrase naming the nearest visual landmark '
-    "(e.g. shop, temple, tree, statue)\n"
-    '  "turn_instruction": a short directional instruction '
-    "(e.g. \"take left after the landmark\")\n"
-    '  "door_color": the color of the door/gate if mentioned, otherwise '
-    '"unknown"\n'
-    '  "audio_summary_hindi": a one-line summary of the directions '
-    "written in Hindi (Devanagari script)\n\n"
+    "You are a navigation extraction engine for last-mile delivery in India. "
+    "You will receive a raw voice transcript from a customer, often in Hindi, "
+    "a regional Indian language, or Hinglish (code-mixed Hindi-English). Your "
+    "job is to convert it into a structured, driver-ready navigation payload.\n\n"
+    "Return ONLY a single valid JSON object with exactly this schema:\n\n"
+    "{\n"
+    '  "waypoints": ["Array of string instructions in chronological order, '
+    "e.g. 'Near Gupta store', 'Turn left'\"],\n"
+    '  "destination": {\n'
+    '    "house_number": "String (or null)",\n'
+    '    "floor": "String (or null)",\n'
+    '    "door_details": "String (or null)"\n'
+    "  },\n"
+    '  "flags": {\n'
+    '    "do_not_call": boolean\n'
+    "  },\n"
+    '  "special_instructions": "String with any extra driver notes, e.g. '
+    "'Take the lift, do not use stairs' (or null)\"\n"
+    "}\n\n"
+    "Field guidance:\n"
+    '- "waypoints": break the route description into an ordered list of short, '
+    "discrete navigation steps, in the sequence the driver would encounter them "
+    "(landmarks passed, then turns, then final approach). Each entry should be a "
+    "short standalone phrase, not a full sentence.\n"
+    '- "destination.house_number": the house, flat, or shop number if stated, '
+    "else null.\n"
+    '- "destination.floor": the floor level if mentioned (e.g. \"1st floor\", '
+    "\"ground floor\"), else null.\n"
+    '- "destination.door_details": distinguishing details about the door or gate '
+    "itself (color, material, markings), else null.\n"
+    '- "flags.do_not_call": set to true only if the customer explicitly indicates '
+    "they should not be called or phoned (e.g. \"mujhe call mat karna\", \"don't "
+    "call me\", \"phone mat karo\"). Default to false otherwise.\n"
+    '- "special_instructions": any operational note that doesn\'t fit elsewhere '
+    "(e.g. lift/stairs guidance, dog on premises, gate codes, timing restrictions), "
+    "else null.\n\n"
+    "Indian context handling:\n"
+    "- Normalize regional/colloquial terms into their plain English navigation "
+    "equivalents inside the JSON values, e.g. translate \"gali\" to \"street\" or "
+    "\"lane\", \"peepal ka ped\" to \"peepal tree\", \"bhaiya\"/\"ji\" are polite "
+    "address terms and should be dropped rather than translated literally.\n"
+    "- Recognize common regional landmark references (temples, sweet shops, "
+    "specific trees, colored gates, water tanks, etc.) as valid waypoints.\n"
+    "- Recognize phrases indicating a no-call preference in Hindi, Hinglish, or "
+    "English and map them to \"flags.do_not_call\": true.\n\n"
     "Rules:\n"
-    "- Output JSON only. No markdown, no code fences, no commentary, no "
-    "preamble.\n"
-    "- If a field cannot be determined from the transcript, use the "
-    'string "unknown" for that field.\n'
-    "- Keep each field concise (a few words to a short phrase).\n"
+    "- Output JSON only. No markdown, no code fences, no commentary, no preamble.\n"
+    "- Use JSON null (not the string \"null\" or \"unknown\") for any field that "
+    "cannot be determined from the transcript.\n"
+    "- \"flags.do_not_call\" must always be a JSON boolean (true or false), never "
+    "null.\n"
+    "- \"waypoints\" must always be a JSON array, even if it contains only one "
+    "item or is empty.\n"
 )
 
 
-def _build_client():
-    """Create a Bedrock Runtime client."""
-    return boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
-
-
-def _build_request_body(transcript_text: str) -> str:
-    """Construct the Anthropic Messages API request body for Bedrock."""
-    payload = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 300,
-        "temperature": 0,
-        "system": SYSTEM_PROMPT,
-        "messages": [
-            {
-                "role": "user",
-                "content": (
-                    "Voice transcript:\n"
-                    f'"""{transcript_text}"""\n\n'
-                    "Extract the JSON now."
-                ),
-            }
+def _fallback_payload() -> dict:
+    return {
+        "waypoints": [
+            "Near Sharma Sweets",
+            "Behind the big Peepal tree",
         ],
+        "destination": {
+            "house_number": None,
+            "floor": None,
+            "door_details": "red gate",
+        },
+        "flags": {
+            "do_not_call": False,
+        },
+        "special_instructions": None,
     }
-    return json.dumps(payload)
 
 
-def _safe_parse_json(raw_text: str) -> dict:
-    """Safely parse a JSON object out of the model's raw text output."""
-    cleaned = raw_text.strip()
-
-    # Strip accidental markdown code fences if the model adds them.
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        cleaned = cleaned.replace("json", "", 1).strip()
-
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError:
-        # Fallback: attempt to locate the first { ... } block in the text.
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            logger.error("Could not locate JSON object in model output: %s", raw_text)
-            return _fallback_payload()
-        try:
-            parsed = json.loads(cleaned[start : end + 1])
-        except json.JSONDecodeError:
-            logger.error("Failed to parse JSON from model output: %s", raw_text)
-            return _fallback_payload()
-
-    return _ensure_required_keys(parsed)
-
-
-def _ensure_required_keys(parsed: dict) -> dict:
-    """Guarantee all required keys exist, filling missing ones with 'unknown'."""
+def _ensure_schema(parsed: dict) -> dict:
+    """Guarantee the nested Structured Flexibility schema is fully populated,
+    filling any missing or malformed fields with safe defaults."""
     if not isinstance(parsed, dict):
         return _fallback_payload()
 
-    for key in REQUIRED_KEYS:
-        if key not in parsed or not isinstance(parsed[key], str) or not parsed[key].strip():
-            parsed[key] = "unknown"
+    waypoints = parsed.get("waypoints")
+    if not isinstance(waypoints, list):
+        waypoints = []
+    waypoints = [str(w) for w in waypoints if isinstance(w, (str, int, float))]
 
-    return {key: parsed[key] for key in REQUIRED_KEYS}
+    destination = parsed.get("destination")
+    if not isinstance(destination, dict):
+        destination = {}
+    destination = {
+        "house_number": destination.get("house_number") or None,
+        "floor": destination.get("floor") or None,
+        "door_details": destination.get("door_details") or None,
+    }
 
+    flags = parsed.get("flags")
+    if not isinstance(flags, dict):
+        flags = {}
+    do_not_call = flags.get("do_not_call")
+    if not isinstance(do_not_call, bool):
+        do_not_call = False
+    flags = {"do_not_call": do_not_call}
 
-def _fallback_payload() -> dict:
-    """Return a safe default payload when extraction fails entirely."""
-    return {key: "unknown" for key in REQUIRED_KEYS}
+    special_instructions = parsed.get("special_instructions") or None
+
+    return {
+        "waypoints": waypoints,
+        "destination": destination,
+        "flags": flags,
+        "special_instructions": special_instructions,
+    }
 
 
 def extract_landmarks(transcript_text: str) -> dict:
-    """
-    Extract structured navigation landmarks from a raw voice transcript
-    using Amazon Bedrock (Claude 3 Haiku).
-
-    Args:
-        transcript_text: Raw transcript text (Hindi / regional / Hinglish)
-                          describing the delivery landmark.
-
-    Returns:
-        A dictionary with keys: landmark, turn_instruction, door_color,
-        audio_summary_hindi. Falls back to "unknown" values on any
-        extraction or parsing failure.
-    """
     if not transcript_text or not transcript_text.strip():
-        logger.warning("Empty transcript_text passed to extract_landmarks.")
         return _fallback_payload()
 
     try:
-        client = _build_client()
-        body = _build_request_body(transcript_text)
+        # Grabs the key directly from your terminal export command
+        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-        response = client.invoke_model(
-            modelId=BEDROCK_MODEL_ID,
-            body=body,
-            contentType="application/json",
-            accept="application/json",
+        prompt = f"{SYSTEM_PROMPT}\n\nVoice transcript:\n{transcript_text}"
+
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-lite",
+            contents=prompt
         )
 
-        response_body = json.loads(response["body"].read())
-        content_blocks = response_body.get("content", [])
+        cleaned = response.text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            cleaned = cleaned.replace("json", "", 1).strip()
 
-        raw_text = "".join(
-            block.get("text", "") for block in content_blocks if block.get("type") == "text"
-        )
+        parsed = json.loads(cleaned)
 
-        if not raw_text.strip():
-            logger.error("Bedrock returned no text content: %s", response_body)
-            return _fallback_payload()
+        return _ensure_schema(parsed)
 
-        return _safe_parse_json(raw_text)
-
-    except Exception:
-        logger.exception("Bedrock landmark extraction failed.")
+    except Exception as e:
+        logger.exception("Gemini landmark extraction failed. Using fallback.")
         return _fallback_payload()

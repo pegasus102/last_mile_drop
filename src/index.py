@@ -25,13 +25,21 @@ SAMPLE_TRANSCRIPT = (
 
 
 def _get_dynamodb_table():
-    """Initialize the DynamoDB resource (pointed at LocalStack) and return the table."""
-    dynamodb = boto3.resource(
-        "dynamodb",
-        endpoint_url=DYNAMODB_ENDPOINT_URL,
-        region_name=AWS_REGION,
-    )
-    return dynamodb.Table(TABLE_NAME)
+    """Initialize the DynamoDB resource. Uses LocalStack if endpoint is provided, else native AWS."""
+    import os
+    
+    endpoint_url = os.environ.get("DYNAMODB_ENDPOINT_URL")
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    table_name = os.environ.get("TABLE_NAME", "Deliveries")
+    
+    if endpoint_url and endpoint_url.strip():
+        # Local routing (LocalStack emulator)
+        dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url, region_name=region)
+    else:
+        # Production routing (Real AWS Cloud)
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        
+    return dynamodb.Table(table_name)
 
 
 def _extract_package_id_from_key(object_key: str) -> str:
@@ -239,6 +247,31 @@ def _handle_ping_doorbell(payload: dict) -> dict:
     )
 
 
+def _handle_list_deliveries(payload: dict) -> dict:
+    """
+    Handles action == "LIST_DELIVERIES".
+
+    Scans the Deliveries table for all package_id values and returns
+    them as a flat list.
+    """
+    table = _get_dynamodb_table()
+
+    package_ids = []
+    scan_kwargs = {"ProjectionExpression": "package_id"}
+
+    while True:
+        result = table.scan(**scan_kwargs)
+        items = result.get("Items", [])
+        package_ids.extend(item.get("package_id") for item in items if item.get("package_id"))
+
+        last_evaluated_key = result.get("LastEvaluatedKey")
+        if not last_evaluated_key:
+            break
+        scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+    return _response(200, {"package_ids": package_ids})
+
+
 def lambda_handler(event, context):
     """
     Unified entry point handling two distinct trigger types:
@@ -258,6 +291,9 @@ def lambda_handler(event, context):
 
     if action == "PING_DOORBELL":
         return _handle_ping_doorbell(payload)
+
+    if action == "LIST_DELIVERIES":
+        return _handle_list_deliveries(payload)
 
     logger.warning("Unrecognized event/action: %s", json.dumps(event, default=str))
     return _response(400, {"error": f"Unrecognized action: {action}"})
