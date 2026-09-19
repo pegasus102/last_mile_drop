@@ -786,6 +786,7 @@
           }),
         });
         const data = await response.json();
+        console.log("BACKEND DATA:", data);
         
         // FIX 2: Bulletproof JSON parsing that strips Gemini's markdown backticks
         if (data.landmarks && typeof data.landmarks === 'string') {
@@ -1073,7 +1074,7 @@
       adminAudioPlayer.style.display = 'none';
     }
   }
-  
+
   distanceInput.addEventListener('input', updateHUD);
   pingBtn.addEventListener('click', pingDoorbell);
   callBtn.addEventListener('click', callCustomer);
