@@ -704,21 +704,22 @@
   </div>
 
 <style>
-  /* FIX: Dynamic height and padding to prevent bottom cutoff */
   .package-table-wrap {
-    max-height: 40vh !important; /* Takes up exactly 40% of the screen height, no more */
-    min-height: 150px !important;
+    max-height: 200px !important; /* Strict height so it never spills out of the white card */
     overflow-y: auto !important;
     display: block !important;
     width: 100% !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 20px !important; /* Creates physical scroll space below the last row */
-    margin-bottom: 30px !important; /* Lifts the whole box away from the bottom edge */
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
   }
   
   .package-table {
     width: 100% !important;
-    margin-bottom: 10px !important; 
+    padding-bottom: 40px !important; /* Forces the scrollable area to extend past the last row */
+    display: table !important;
+  }
+  
+  .package-table td {
+    padding: 8px !important; /* Ensures the rows have enough breathing room so buttons aren't squished */
   }
 </style>
 
