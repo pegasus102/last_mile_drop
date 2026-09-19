@@ -57,6 +57,11 @@ Resources:
           Properties:
             Bucket: !Ref VoiceAudioBucket
             Events: s3:ObjectCreated:*
+        ApiEndpoint:
+          Type: Api
+          Properties:
+            Path: /
+            Method: post
 
 Outputs:
   VoiceAudioBucketName:
@@ -70,3 +75,7 @@ Outputs:
   WhisperProcessorFunctionName:
     Description: Lambda function processing voice notes
     Value: !Ref WhisperProcessor
+  
+  WebEndpoint:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
