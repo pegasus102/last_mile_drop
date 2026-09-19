@@ -704,7 +704,6 @@
   </div>
 
 <script>
-
   const distanceInput = document.getElementById('distance-input');
   const shieldStatus = document.getElementById('shield-status');
   const routeContent = document.getElementById('route-content');
@@ -720,14 +719,12 @@
   const CHIME_DURATION_SECONDS = 30;
   const MAX_PINGS = 2;
   
-  // Production Industry-Standard Configuration: Replace with your actual deployed AWS API Gateway Invoke URL ending with '/'
   const API_ENDPOINT = 'https://1y453iowwj.execute-api.us-east-1.amazonaws.com/Prod/';
 
   let pingCount = 0;
   let countdownTimer = null;
-  let fetchedLandmarks = null; // Will store dynamic Gemini output
+  let fetchedLandmarks = null; 
 
-  // Fetches the list of available package IDs from the backend
   async function fetchPackageList() {
     try {
       const response = await fetch(API_ENDPOINT, {
@@ -764,9 +761,7 @@
     }
   }
 
-  // Fetch real extracted landmarks from backend on load.
   async function loadDeliveryData(packageId) {
-    // A package switch invalidates whatever route audio was queued/playing.
     stopRouteAudio();
     try {
       if (packageId) {
@@ -780,7 +775,18 @@
           }),
         });
         const data = await response.json();
-        fetchedLandmarks = data.landmarks;
+        
+        if (!response.ok || data.error) {
+            throw new Error(data.error || "Backend returned an error");
+        }
+
+        // FIX 2: Safely parse Gemini's output if it arrives as a string instead of an object
+        if (data.landmarks && typeof data.landmarks === 'string') {
+            fetchedLandmarks = JSON.parse(data.landmarks);
+        } else {
+            fetchedLandmarks = data.landmarks;
+        }
+
         logLine('api', `Loaded dynamic Gemini landmarks for package: ${packageId}`);
       } else {
         const response = await fetch('current_delivery.json');
@@ -789,19 +795,18 @@
         logLine('api', `Loaded dynamic Gemini landmarks for package: ${data.package_id}`);
       }
     } catch (e) {
-      logLine('error', 'Failed to fetch dynamic landmarks, using fallbacks.');
+      console.error(e);
+      logLine('error', 'Processing or unavailable, using fallbacks temporarily.');
       fetchedLandmarks = {
-        waypoints: ["Default Landmark"],
-        destination: { house_number: null, floor: null, door_details: "Default Door" },
+        waypoints: ["Data processing or unavailable..."],
+        destination: { house_number: null, floor: null, door_details: "Awaiting Data" },
         flags: { do_not_call: false },
-        special_instructions: null
+        special_instructions: "Please try refreshing in 10 seconds."
       };
     }
   }
 
-  // FEATURE 1: Driver Text-to-Speech (HUD) — backed by Amazon Polly via the backend
-
-  let currentRouteAudio = null; // Audio object currently playing, if any
+  let currentRouteAudio = null; 
 
   function resetTtsButton() {
     ttsBtn.classList.remove('speaking');
@@ -831,7 +836,6 @@
   }
 
   async function toggleRouteAudio() {
-    // If audio is already playing, treat the click as a stop action.
     if (currentRouteAudio) {
       stopRouteAudio();
       logLine('audio', 'Route narration stopped by driver.');
@@ -902,7 +906,6 @@
       return;
     }
 
-    // 1. Waypoints List
     if (fetchedLandmarks.waypoints && fetchedLandmarks.waypoints.length > 0) {
       const wpList = document.createElement('div');
       wpList.className = 'waypoint-list';
@@ -915,7 +918,6 @@
       routeContent.appendChild(wpList);
     }
 
-    // 2. Destination Box
     const dest = fetchedLandmarks.destination;
     if (dest && (dest.house_number || dest.floor || dest.door_details)) {
       const destBox = document.createElement('div');
@@ -933,7 +935,6 @@
       routeContent.appendChild(destBox);
     }
 
-    // 3. Special Instructions Box
     if (fetchedLandmarks.special_instructions) {
       const instBox = document.createElement('div');
       instBox.className = 'instructions-box';
@@ -941,7 +942,6 @@
       routeContent.appendChild(instBox);
     }
 
-    // 4. Sync the "Listen to Route" button to the current script availability.
     updateTtsButton(true);
   }
 
@@ -1042,7 +1042,6 @@
       pingBtn.disabled = true;
       pingBtn.innerHTML = '🚫 Max Pings Exceeded';
       
-      // Enforce Do Not Call Logic
       if (fetchedLandmarks && fetchedLandmarks.flags && fetchedLandmarks.flags.do_not_call) {
         dncWarningBox.classList.add('visible');
         callBtn.classList.remove('visible');
@@ -1056,7 +1055,6 @@
       pingBtn.disabled = false;
       pingBtn.innerHTML = '🔄 Ping Once More (2nd Try)';
       
-      // Enforce Do Not Call Logic even on retry state
       if (fetchedLandmarks && fetchedLandmarks.flags && fetchedLandmarks.flags.do_not_call) {
         dncWarningBox.classList.add('visible');
         callBtn.classList.remove('visible');
@@ -1072,10 +1070,12 @@
     logLine('call', 'Placing masked direct call to customer...');
   }
 
-  // FEATURE 2: Raw Audio Preview (Admin Panel)
+  // FIX 1: Map the audio player to the public S3 Bucket instead of the local folder
   function updateAdminAudioPlayer(packageId) {
     if (packageId) {
-      adminAudioPlayer.src = `audio/${packageId}.m4a`;
+      // If it doesn't already have an extension, add .m4a 
+      const objectKey = packageId.includes('.') ? packageId : `${packageId}.m4a`;
+      adminAudioPlayer.src = `https://lastmile-whisper-voice-audio.s3.amazonaws.com/${objectKey}`;
       adminAudioPlayer.style.display = 'block';
       adminAudioPlayer.load();
     } else {
@@ -1091,7 +1091,6 @@
   callBtn.addEventListener('click', callCustomer);
   ttsBtn.addEventListener('click', toggleRouteAudio);
 
-  // Admin Simulator Panel wiring
   packageSelect.addEventListener('change', async () => {
     const selectedId = packageSelect.value;
     updateAdminAudioPlayer(selectedId);
@@ -1105,22 +1104,11 @@
     fetchPackageList();
   });
 
-  // Initialize: load the package list for the admin panel, then load
-  // the default delivery data and render the HUD.
   fetchPackageList();
 
   loadDeliveryData().then(() => {
     updateHUD();
   });
-
-  // ============================================================
-  // NEW: Audio Upload Zone + Package Management Table
-  // Everything below is purely additive — it does not modify any
-  // of the HUD, Cedar Shield, doorbell, or existing admin logic
-  // above. It reuses the existing API_ENDPOINT constant and, after
-  // a successful upload/delete, calls the existing fetchPackageList()
-  // to keep the simulator dropdown in sync.
-  // ============================================================
 
   const adminPanelEl = document.getElementById('admin-panel');
   const extraAdminPanel = document.getElementById('extra-admin-panel');
@@ -1132,8 +1120,6 @@
 
   const EXTRA_PANEL_GAP_PX = 20;
 
-  // Stacks the new panel directly beneath the existing Admin Simulator
-  // panel, regardless of how tall that panel currently renders.
   function positionExtraPanel() {
     if (!adminPanelEl || !extraAdminPanel) return;
     const rect = adminPanelEl.getBoundingClientRect();
@@ -1143,8 +1129,6 @@
 
   window.addEventListener('resize', positionExtraPanel);
   window.addEventListener('load', positionExtraPanel);
-
-  // --- Package Management Table ---
 
   function renderPackageTable(packageIds) {
     packageTableBody.innerHTML = '';
@@ -1207,13 +1191,10 @@
     } catch (e) {
       logLine('error', `Failed to delete package: ${packageId}`);
     } finally {
-      // Keep the simulator dropdown and management table in sync with the backend.
       fetchPackageList();
       loadPackageTable();
     }
   }
-
-  // --- Audio Upload Zone (Drag & Drop + Click to Browse) ---
 
   function setDropzoneState(state, message) {
     if (state === 'uploading' || state === 'done' || state === 'error') {
@@ -1262,7 +1243,6 @@
       logLine('error', `Failed to upload ${file.name}.`);
       setDropzoneState('error', `❌ Upload failed for ${file.name}`);
     } finally {
-      // Keep the simulator dropdown and management table in sync with the backend.
       fetchPackageList();
       loadPackageTable();
 
@@ -1296,15 +1276,23 @@
     uploadFileInput.value = '';
   });
 
-  // Also refresh the management table whenever the existing "Refresh List"
-  // button is used, without altering its original click handler above.
   refreshListBtn.addEventListener('click', () => {
     loadPackageTable();
   });
 
-  // Initial load for the new panel.
   loadPackageTable();
   positionExtraPanel();
+
+  // FIX 3: Force the browser to apply scroll logic to the new table wrapper
+  window.addEventListener('DOMContentLoaded', () => {
+      const tableWrap = document.querySelector('.package-table-wrap');
+      if (tableWrap) {
+          tableWrap.style.maxHeight = '250px';
+          tableWrap.style.overflowY = 'scroll';
+          tableWrap.style.display = 'block';
+          tableWrap.style.width = '100%';
+      }
+  });
 
 </script>
 
