@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import urllib.parse
+import time
 
 import boto3
 
@@ -344,11 +345,13 @@ def _handle_get_upload_url(payload: dict) -> dict:
     """
     Handles action == "GET_UPLOAD_URL".
 
-    Generates a presigned S3 PUT URL (valid for 300 seconds) so the
-    frontend can upload a customer voice note (.m4a/.mp3/.wav) directly
-    to S3, using the same bucket the S3 ObjectCreated trigger above
-    listens on.
+    Generates a presigned S3 PUT URL and auto-renames the incoming file
+    to a standard format (e.g., pkg_upload_<timestamp>.m4a) to keep the 
+    database uniform and avoid name collisions.
     """
+    import os
+    import time
+
     filename = payload.get("filename")
     file_type = payload.get("file_type")
 
@@ -357,7 +360,17 @@ def _handle_get_upload_url(payload: dict) -> dict:
 
     try:
         s3_client = _get_s3_client()
-        object_key = f"voice-notes/{filename}"
+        
+        # 1. Extract the file extension (e.g., '.m4a' or '.mp3')
+        _, ext = os.path.splitext(filename)
+        if not ext:
+            ext = ".m4a"  # Fallback if the browser doesn't send an extension
+            
+        # 2. Generate a standard, unique package name using a timestamp
+        new_filename = f"pkg_upload_{int(time.time())}{ext.lower()}"
+
+        # 3. Save it to the root of the bucket so the S3 trigger catches it normally
+        object_key = new_filename
 
         params = {
             "Bucket": BUCKET_NAME,
@@ -372,7 +385,10 @@ def _handle_get_upload_url(payload: dict) -> dict:
             ExpiresIn=300,
         )
 
-        return _response(200, {"presigned_url": presigned_url})
+        return _response(200, {
+            "presigned_url": presigned_url,
+            "uploaded_as": new_filename  # Optional info for the frontend
+        })
 
     except Exception as e:
         logger.exception("Failed to generate presigned upload URL for filename=%s", filename)
