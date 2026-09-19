@@ -705,21 +705,21 @@
 
 <style>
   .package-table-wrap {
-    max-height: 200px !important; /* Strict height so it never spills out of the white card */
+    max-height: 140px !important; /* Shrinks the box so it leaves room for the text below */
     overflow-y: auto !important;
     display: block !important;
     width: 100% !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    margin-bottom: 20px !important; /* Pushes the hidden text/audio player away from the table */
   }
   
   .package-table {
     width: 100% !important;
-    padding-bottom: 40px !important; /* Forces the scrollable area to extend past the last row */
     display: table !important;
   }
   
   .package-table td {
-    padding: 8px !important; /* Ensures the rows have enough breathing room so buttons aren't squished */
+    padding: 8px !important;
   }
 </style>
 
