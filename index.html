@@ -487,6 +487,120 @@
     }
   }
 
+  /* ============================================================
+     NEW: Audio Upload Zone + Package Management Table
+     Appended below the existing Admin Simulator panel. Reuses the
+     same .admin-panel shell styling; only positioning (top offset)
+     is overridden inline via JS so it stacks directly beneath it.
+     ============================================================ */
+
+  #extra-admin-panel {
+    visibility: hidden; /* revealed once JS computes its top offset */
+  }
+
+  .upload-dropzone {
+    border: 2px dashed #a9d3da;
+    background: var(--accent-purple-dim);
+    border-radius: 8px;
+    padding: 18px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    font-size: 0.78rem;
+    color: var(--accent-purple);
+    line-height: 1.4;
+  }
+
+  .upload-dropzone:hover {
+    background: #d9edf1;
+  }
+
+  .upload-dropzone.dragover {
+    border-color: var(--accent-purple);
+    background: #cdeaf0;
+  }
+
+  .upload-dropzone-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .upload-icon {
+    font-size: 1.3rem;
+  }
+
+  .upload-progress {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent-purple);
+  }
+
+  .package-table-wrap {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+  }
+
+  table.package-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+
+  table.package-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--card-border);
+    vertical-align: middle;
+  }
+
+  table.package-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .package-id-cell {
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-all;
+  }
+
+  .package-table-empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 14px !important;
+  }
+
+  .btn-delete-package {
+    background: #fdf0f0;
+    color: var(--accent-red);
+    border: 1px solid #f3c6c6;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: var(--font-body);
+    transition: filter 0.15s ease, opacity 0.15s ease;
+  }
+
+  .btn-delete-package:hover:not(:disabled) {
+    filter: brightness(0.95);
+  }
+
+  .btn-delete-package:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 900px) {
+    #extra-admin-panel {
+      display: none;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -558,6 +672,35 @@
     <audio id="admin-audio-player" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
     <button id="refresh-list-btn">🔄 Refresh List</button>
     <p class="admin-panel-note">Switches the mobile HUD's active delivery for demo purposes.</p>
+  </div>
+
+  <!-- NEW: Audio Upload Zone + Package Management Table, stacked directly below the Admin Simulator panel -->
+  <div class="admin-panel" id="extra-admin-panel" style="top: 40px;">
+    <div class="admin-panel-header">
+      <p class="admin-panel-title">📤 Package Manager</p>
+      <span class="admin-badge">DEMO</span>
+    </div>
+
+    <label class="admin-field-label">Upload Voice Note</label>
+    <div id="upload-dropzone" class="upload-dropzone">
+      <input type="file" id="upload-file-input" accept=".m4a,.mp3,.wav,audio/*" hidden>
+      <div id="upload-dropzone-text" class="upload-dropzone-text">
+        <span class="upload-icon">⬆️</span>
+        <span>Drag &amp; drop audio file here<br>or click to browse</span>
+      </div>
+      <div id="upload-progress" class="upload-progress" style="display: none;"></div>
+    </div>
+
+    <label class="admin-field-label" style="margin-top: 16px;">Manage Packages</label>
+    <div class="package-table-wrap">
+      <table class="package-table" id="package-table">
+        <tbody id="package-table-body">
+          <tr><td colspan="2" class="package-table-empty">No packages loaded</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="admin-panel-note">Uploads a new voice note or removes a package, then refreshes the simulator list.</p>
   </div>
 
 <script>
@@ -969,6 +1112,199 @@
   loadDeliveryData().then(() => {
     updateHUD();
   });
+
+  // ============================================================
+  // NEW: Audio Upload Zone + Package Management Table
+  // Everything below is purely additive — it does not modify any
+  // of the HUD, Cedar Shield, doorbell, or existing admin logic
+  // above. It reuses the existing API_ENDPOINT constant and, after
+  // a successful upload/delete, calls the existing fetchPackageList()
+  // to keep the simulator dropdown in sync.
+  // ============================================================
+
+  const adminPanelEl = document.getElementById('admin-panel');
+  const extraAdminPanel = document.getElementById('extra-admin-panel');
+  const uploadDropzone = document.getElementById('upload-dropzone');
+  const uploadFileInput = document.getElementById('upload-file-input');
+  const uploadDropzoneText = document.getElementById('upload-dropzone-text');
+  const uploadProgress = document.getElementById('upload-progress');
+  const packageTableBody = document.getElementById('package-table-body');
+
+  const EXTRA_PANEL_GAP_PX = 20;
+
+  // Stacks the new panel directly beneath the existing Admin Simulator
+  // panel, regardless of how tall that panel currently renders.
+  function positionExtraPanel() {
+    if (!adminPanelEl || !extraAdminPanel) return;
+    const rect = adminPanelEl.getBoundingClientRect();
+    extraAdminPanel.style.top = `${rect.bottom + EXTRA_PANEL_GAP_PX}px`;
+    extraAdminPanel.style.visibility = 'visible';
+  }
+
+  window.addEventListener('resize', positionExtraPanel);
+  window.addEventListener('load', positionExtraPanel);
+
+  // --- Package Management Table ---
+
+  function renderPackageTable(packageIds) {
+    packageTableBody.innerHTML = '';
+
+    if (!packageIds || packageIds.length === 0) {
+      packageTableBody.innerHTML = '<tr><td colspan="2" class="package-table-empty">No packages loaded</td></tr>';
+      return;
+    }
+
+    packageIds.forEach((id) => {
+      const row = document.createElement('tr');
+
+      const idCell = document.createElement('td');
+      idCell.className = 'package-id-cell';
+      idCell.textContent = id;
+
+      const actionCell = document.createElement('td');
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-delete-package';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => deletePackage(id, deleteBtn));
+      actionCell.appendChild(deleteBtn);
+
+      row.appendChild(idCell);
+      row.appendChild(actionCell);
+      packageTableBody.appendChild(row);
+    });
+  }
+
+  async function loadPackageTable() {
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'LIST_DELIVERIES' }),
+      });
+      const data = await response.json();
+      renderPackageTable(data.package_ids || []);
+    } catch (e) {
+      logLine('error', 'Failed to load package management table.');
+    } finally {
+      positionExtraPanel();
+    }
+  }
+
+  async function deletePackage(packageId, buttonEl) {
+    buttonEl.disabled = true;
+    buttonEl.textContent = 'Deleting…';
+
+    try {
+      await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'DELETE_DELIVERY',
+          package_id: packageId,
+        }),
+      });
+      logLine('admin', `Deleted package: ${packageId}`);
+    } catch (e) {
+      logLine('error', `Failed to delete package: ${packageId}`);
+    } finally {
+      // Keep the simulator dropdown and management table in sync with the backend.
+      fetchPackageList();
+      loadPackageTable();
+    }
+  }
+
+  // --- Audio Upload Zone (Drag & Drop + Click to Browse) ---
+
+  function setDropzoneState(state, message) {
+    if (state === 'uploading' || state === 'done' || state === 'error') {
+      uploadDropzoneText.style.display = 'none';
+      uploadProgress.style.display = 'block';
+      uploadProgress.textContent = message || '';
+    } else {
+      uploadDropzoneText.style.display = 'flex';
+      uploadProgress.style.display = 'none';
+    }
+  }
+
+  async function uploadAudioFile(file) {
+    if (!file) return;
+
+    setDropzoneState('uploading', `⏳ Requesting upload URL for ${file.name}...`);
+
+    try {
+      const urlResponse = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'GET_UPLOAD_URL',
+          filename: file.name,
+          file_type: file.type,
+        }),
+      });
+      const urlData = await urlResponse.json();
+      const presignedUrl = urlData.presigned_url;
+
+      if (!presignedUrl) {
+        throw new Error('No presigned_url returned from backend.');
+      }
+
+      setDropzoneState('uploading', `⏳ Uploading ${file.name}...`);
+
+      await fetch(presignedUrl, {
+        method: 'PUT',
+        body: file,
+      });
+
+      logLine('admin', `Uploaded voice note: ${file.name}`);
+      setDropzoneState('done', `✅ Uploaded ${file.name}`);
+
+    } catch (e) {
+      logLine('error', `Failed to upload ${file.name}.`);
+      setDropzoneState('error', `❌ Upload failed for ${file.name}`);
+    } finally {
+      // Keep the simulator dropdown and management table in sync with the backend.
+      fetchPackageList();
+      loadPackageTable();
+
+      setTimeout(() => {
+        setDropzoneState('idle');
+      }, 2500);
+    }
+  }
+
+  uploadDropzone.addEventListener('click', () => uploadFileInput.click());
+
+  uploadDropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadDropzone.classList.add('dragover');
+  });
+
+  uploadDropzone.addEventListener('dragleave', () => {
+    uploadDropzone.classList.remove('dragover');
+  });
+
+  uploadDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadDropzone.classList.remove('dragover');
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) uploadAudioFile(file);
+  });
+
+  uploadFileInput.addEventListener('change', () => {
+    const file = uploadFileInput.files && uploadFileInput.files[0];
+    if (file) uploadAudioFile(file);
+    uploadFileInput.value = '';
+  });
+
+  // Also refresh the management table whenever the existing "Refresh List"
+  // button is used, without altering its original click handler above.
+  refreshListBtn.addEventListener('click', () => {
+    loadPackageTable();
+  });
+
+  // Initial load for the new panel.
+  loadPackageTable();
+  positionExtraPanel();
 
 </script>
 

@@ -59,6 +59,11 @@ DYNAMODB_ENDPOINT_URL = os.environ.get("DYNAMODB_ENDPOINT_URL", "http://localhos
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 TABLE_NAME = os.environ.get("TABLE_NAME", "Deliveries")
 
+# S3 bucket used for customer voice-note uploads (same bucket the S3
+# ObjectCreated trigger above is wired to in template.yaml).
+BUCKET_NAME = os.environ.get("BUCKET_NAME", "last-mile-whisper-voice-notes")
+S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL")
+
 MAX_PING_COUNT = 2
 
 # Sample transcript used until real voice-to-text transcription is wired in.
@@ -84,6 +89,20 @@ def _get_dynamodb_table():
         dynamodb = boto3.resource("dynamodb", region_name=region)
         
     return dynamodb.Table(table_name)
+
+
+def _get_s3_client():
+    """
+    Initialize the S3 client used for presigned upload URLs.
+    Mirrors _get_dynamodb_table()'s LocalStack-vs-real-AWS routing pattern:
+    uses S3_ENDPOINT_URL if set (local emulation), otherwise native AWS.
+    """
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    endpoint_url = os.environ.get("S3_ENDPOINT_URL")
+
+    if endpoint_url and endpoint_url.strip():
+        return boto3.client("s3", endpoint_url=endpoint_url, region_name=region)
+    return boto3.client("s3", region_name=region)
 
 
 def _extract_package_id_from_key(object_key: str) -> str:
@@ -321,6 +340,68 @@ def _handle_list_deliveries(payload: dict) -> dict:
     return _response(200, {"package_ids": package_ids})
 
 
+def _handle_get_upload_url(payload: dict) -> dict:
+    """
+    Handles action == "GET_UPLOAD_URL".
+
+    Generates a presigned S3 PUT URL (valid for 300 seconds) so the
+    frontend can upload a customer voice note (.m4a/.mp3/.wav) directly
+    to S3, using the same bucket the S3 ObjectCreated trigger above
+    listens on.
+    """
+    filename = payload.get("filename")
+    file_type = payload.get("file_type")
+
+    if not filename:
+        return _response(400, {"error": "Missing required field: filename."})
+
+    try:
+        s3_client = _get_s3_client()
+        object_key = f"voice-notes/{filename}"
+
+        params = {
+            "Bucket": BUCKET_NAME,
+            "Key": object_key,
+        }
+        if file_type:
+            params["ContentType"] = file_type
+
+        presigned_url = s3_client.generate_presigned_url(
+            ClientMethod="put_object",
+            Params=params,
+            ExpiresIn=300,
+        )
+
+        return _response(200, {"presigned_url": presigned_url})
+
+    except Exception as e:
+        logger.exception("Failed to generate presigned upload URL for filename=%s", filename)
+        return _response(500, {"error": f"Failed to generate upload URL: {str(e)}"})
+
+
+def _handle_delete_delivery(payload: dict) -> dict:
+    """
+    Handles action == "DELETE_DELIVERY".
+
+    Deletes the delivery record identified by package_id from the
+    Deliveries table.
+    """
+    package_id = payload.get("package_id")
+
+    if not package_id:
+        return _response(400, {"error": "Missing required field: package_id."})
+
+    try:
+        table = _get_dynamodb_table()
+        table.delete_item(Key={"package_id": package_id})
+
+        return _response(200, {"message": f"Deleted package_id={package_id}."})
+
+    except Exception as e:
+        logger.exception("Failed to delete delivery for package_id=%s", package_id)
+        return _response(500, {"error": f"Failed to delete delivery: {str(e)}"})
+
+
 def lambda_handler(event, context):
     """
     Unified entry point handling two distinct trigger types:
@@ -364,6 +445,12 @@ def lambda_handler(event, context):
         
     if action == "SYNTHESIZE_SPEECH":
         return _handle_synthesize_speech(payload)
+
+    if action == "GET_UPLOAD_URL":
+        return _handle_get_upload_url(payload)
+
+    if action == "DELETE_DELIVERY":
+        return _handle_delete_delivery(payload)
 
     logger.warning("Unrecognized event/action: %s", json.dumps(event, default=str))
     return _response(400, {"error": f"Unrecognized action: {action}"}, cors_headers)

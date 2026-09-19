@@ -20,6 +20,18 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: lastmile-whisper-voice-audio
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3000
 
   DeliveriesTable:
     Type: AWS::Serverless::SimpleTable
@@ -40,11 +52,12 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref DeliveriesTable
+          AUDIO_BUCKET_NAME: lastmile-whisper-voice-audio
           GEMINI_API_KEY: !Ref GeminiApiKey
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DeliveriesTable
-        - S3ReadPolicy:
+        - S3CrudPolicy:
             BucketName: lastmile-whisper-voice-audio
         - Statement:
             - Effect: Allow
@@ -75,7 +88,7 @@ Outputs:
   WhisperProcessorFunctionName:
     Description: Lambda function processing voice notes
     Value: !Ref WhisperProcessor
-  
+
   WebEndpoint:
     Description: "API Gateway endpoint URL for Prod stage"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
