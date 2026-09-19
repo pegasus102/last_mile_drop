@@ -703,6 +703,20 @@
     <p class="admin-panel-note">Uploads a new voice note or removes a package, then refreshes the simulator list.</p>
   </div>
 
+<style>
+  /* FIX 1: Brute-force the scrollbar so no other CSS can override it */
+  .package-table-wrap {
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    display: block !important;
+    width: 100% !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .package-table {
+    width: 100% !important;
+  }
+</style>
+
 <script>
   const distanceInput = document.getElementById('distance-input');
   const shieldStatus = document.getElementById('shield-status');
@@ -719,7 +733,7 @@
   const CHIME_DURATION_SECONDS = 30;
   const MAX_PINGS = 2;
   
-  const API_ENDPOINT = 'https://1y453iowwj.execute-api.us-east-1.amazonaws.com/Prod/';
+  const API_ENDPOINT = '[https://1y453iowwj.execute-api.us-east-1.amazonaws.com/Prod/](https://1y453iowwj.execute-api.us-east-1.amazonaws.com/Prod/)';
 
   let pingCount = 0;
   let countdownTimer = null;
@@ -750,10 +764,8 @@
           packageSelect.appendChild(opt);
         });
       }
-
       logLine('admin', `Loaded ${packageIds.length} package(s) into simulator.`);
       return packageIds;
-
     } catch (e) {
       logLine('error', 'Failed to fetch package list from backend.');
       packageSelect.innerHTML = '<option value="">Unavailable</option>';
@@ -776,32 +788,28 @@
         });
         const data = await response.json();
         
-        if (!response.ok || data.error) {
-            throw new Error(data.error || "Backend returned an error");
-        }
-
-        // FIX 2: Safely parse Gemini's output if it arrives as a string instead of an object
+        // FIX 2: Bulletproof JSON parsing that strips Gemini's markdown backticks
         if (data.landmarks && typeof data.landmarks === 'string') {
-            fetchedLandmarks = JSON.parse(data.landmarks);
+            let cleanStr = data.landmarks.replace(/```json/gi, '').replace(/```/g, '').trim();
+            fetchedLandmarks = JSON.parse(cleanStr);
         } else {
             fetchedLandmarks = data.landmarks;
         }
 
-        logLine('api', `Loaded dynamic Gemini landmarks for package: ${packageId}`);
+        logLine('api', `Loaded dynamic landmarks for package: ${packageId}`);
       } else {
         const response = await fetch('current_delivery.json');
         const data = await response.json();
         fetchedLandmarks = data.landmarks;
-        logLine('api', `Loaded dynamic Gemini landmarks for package: ${data.package_id}`);
       }
     } catch (e) {
-      console.error(e);
-      logLine('error', 'Processing or unavailable, using fallbacks temporarily.');
+      console.error("Data Parse Error:", e);
+      logLine('error', 'Using fallback UI temporarily.');
       fetchedLandmarks = {
         waypoints: ["Data processing or unavailable..."],
         destination: { house_number: null, floor: null, door_details: "Awaiting Data" },
         flags: { do_not_call: false },
-        special_instructions: "Please try refreshing in 10 seconds."
+        special_instructions: "Please try refreshing the package."
       };
     }
   }
@@ -894,13 +902,11 @@
 
   function renderRouteDetails(unlocked) {
     routeContent.innerHTML = '';
-
     if (!unlocked) {
       routeContent.innerHTML = '<span class="tag-placeholder">Route Details Hidden —</span>';
       updateTtsButton(false);
       return;
     }
-
     if (!fetchedLandmarks) {
       updateTtsButton(false);
       return;
@@ -975,11 +981,7 @@
 
   function updateHUD() {
     const distance = parseFloat(distanceInput.value);
-
-    if (isNaN(distance) || distance < 0) {
-      logLine('error', 'Invalid distance value.');
-      return;
-    }
+    if (isNaN(distance) || distance < 0) return;
 
     shieldStatus.classList.remove('locked', 'landmarks-only', 'doorbell-unlocked');
 
@@ -989,40 +991,29 @@
       renderRouteDetails(false);
       setDoorbellState('locked');
       resetDoorbellFlow();
-      logLine('cedar', `DENIED — distance ${distance}m exceeds 500m radius.`);
-
     } else if (distance > 20 && distance <= 500) {
       shieldStatus.classList.add('landmarks-only');
       shieldStatus.textContent = '🟡 Landmarks Unlocked — Doorbell Locked (>20m)';
       renderRouteDetails(true);
       setDoorbellState('yellow');
       resetDoorbellFlow();
-      logLine('cedar', `ALLOWED (ReadLandmark) — distance ${distance}m within 500m radius.`);
-      logLine('cedar', `DENIED (PingDoorbell) — distance ${distance}m exceeds 20m radius.`);
-
     } else {
       shieldStatus.classList.add('doorbell-unlocked');
       shieldStatus.textContent = '🟢 Digital Doorbell Unlocked (≤20m)';
       renderRouteDetails(true);
       setDoorbellState('green');
-      logLine('cedar', `ALLOWED by Cedar Policy — distance ${distance}m within 20m radius.`);
     }
   }
 
   function pingDoorbell() {
     if (pingBtn.disabled) return;
-
     pingCount += 1;
     pingBtn.disabled = true;
-
-    logLine('doorbell', `Sending 30s chime alert to customer's phone (attempt ${pingCount}/${MAX_PINGS})...`);
     pingBtn.innerHTML = `🔔 Ringing... (${CHIME_DURATION_SECONDS}s)`;
 
     let secondsLeft = CHIME_DURATION_SECONDS;
-
     countdownTimer = setInterval(() => {
       secondsLeft -= 1;
-
       if (secondsLeft > 0) {
         pingBtn.innerHTML = `🔔 Ringing... (${secondsLeft}s)`;
       } else {
@@ -1034,8 +1025,6 @@
   }
 
   function handlePingTimeout() {
-    logLine('doorbell', 'Chime timed out — no acknowledgment received.');
-
     if (pingCount >= MAX_PINGS) {
       pingBtn.classList.remove('state-green', 'state-yellow');
       pingBtn.classList.add('state-locked');
@@ -1045,24 +1034,19 @@
       if (fetchedLandmarks && fetchedLandmarks.flags && fetchedLandmarks.flags.do_not_call) {
         dncWarningBox.classList.add('visible');
         callBtn.classList.remove('visible');
-        logLine('doorbell', 'MAX_PINGS_EXCEEDED — Call blocked by DO NOT CALL policy.');
       } else {
         callBtn.classList.add('visible');
         dncWarningBox.classList.remove('visible');
-        logLine('doorbell', 'MAX_PINGS_EXCEEDED — direct call required.');
       }
     } else {
       pingBtn.disabled = false;
       pingBtn.innerHTML = '🔄 Ping Once More (2nd Try)';
-      
       if (fetchedLandmarks && fetchedLandmarks.flags && fetchedLandmarks.flags.do_not_call) {
         dncWarningBox.classList.add('visible');
         callBtn.classList.remove('visible');
       } else {
         callBtn.classList.add('visible');
       }
-      
-      logLine('doorbell', 'Doorbell available for a second attempt.');
     }
   }
 
@@ -1070,12 +1054,17 @@
     logLine('call', 'Placing masked direct call to customer...');
   }
 
-  // FIX 1: Map the audio player to the public S3 Bucket instead of the local folder
+  // FIX 3: Route old audio to local GitHub folder, new audio to S3 bucket
   function updateAdminAudioPlayer(packageId) {
     if (packageId) {
-      // If it doesn't already have an extension, add .m4a 
-      const objectKey = packageId.includes('.') ? packageId : `${packageId}.m4a`;
-      adminAudioPlayer.src = `https://lastmile-whisper-voice-audio.s3.amazonaws.com/${objectKey}`;
+      if (packageId.startsWith('pkg_upload_')) {
+        // It's a new upload, pull from S3
+        const objectKey = packageId.includes('.') ? packageId : `${packageId}.m4a`;
+        adminAudioPlayer.src = `[https://lastmile-whisper-voice-audio.s3.amazonaws.com/$](https://lastmile-whisper-voice-audio.s3.amazonaws.com/$){objectKey}`;
+      } else {
+        // It's an old test file, pull from local folder
+        adminAudioPlayer.src = `audio/${packageId}.m4a`;
+      }
       adminAudioPlayer.style.display = 'block';
       adminAudioPlayer.load();
     } else {
@@ -1105,10 +1094,7 @@
   });
 
   fetchPackageList();
-
-  loadDeliveryData().then(() => {
-    updateHUD();
-  });
+  loadDeliveryData().then(() => updateHUD());
 
   const adminPanelEl = document.getElementById('admin-panel');
   const extraAdminPanel = document.getElementById('extra-admin-panel');
@@ -1132,26 +1118,21 @@
 
   function renderPackageTable(packageIds) {
     packageTableBody.innerHTML = '';
-
     if (!packageIds || packageIds.length === 0) {
       packageTableBody.innerHTML = '<tr><td colspan="2" class="package-table-empty">No packages loaded</td></tr>';
       return;
     }
-
     packageIds.forEach((id) => {
       const row = document.createElement('tr');
-
       const idCell = document.createElement('td');
       idCell.className = 'package-id-cell';
       idCell.textContent = id;
-
       const actionCell = document.createElement('td');
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'btn-delete-package';
       deleteBtn.textContent = 'Delete';
       deleteBtn.addEventListener('click', () => deletePackage(id, deleteBtn));
       actionCell.appendChild(deleteBtn);
-
       row.appendChild(idCell);
       row.appendChild(actionCell);
       packageTableBody.appendChild(row);
@@ -1177,15 +1158,11 @@
   async function deletePackage(packageId, buttonEl) {
     buttonEl.disabled = true;
     buttonEl.textContent = 'Deleting…';
-
     try {
       await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'DELETE_DELIVERY',
-          package_id: packageId,
-        }),
+        body: JSON.stringify({ action: 'DELETE_DELIVERY', package_id: packageId }),
       });
       logLine('admin', `Deleted package: ${packageId}`);
     } catch (e) {
@@ -1209,9 +1186,7 @@
 
   async function uploadAudioFile(file) {
     if (!file) return;
-
     setDropzoneState('uploading', `⏳ Requesting upload URL for ${file.name}...`);
-
     try {
       const urlResponse = await fetch(API_ENDPOINT, {
         method: 'POST',
@@ -1224,76 +1199,47 @@
       });
       const urlData = await urlResponse.json();
       const presignedUrl = urlData.presigned_url;
-
-      if (!presignedUrl) {
-        throw new Error('No presigned_url returned from backend.');
-      }
-
+      if (!presignedUrl) throw new Error('No presigned_url returned from backend.');
+      
       setDropzoneState('uploading', `⏳ Uploading ${file.name}...`);
-
-      await fetch(presignedUrl, {
-        method: 'PUT',
-        body: file,
-      });
-
+      await fetch(presignedUrl, { method: 'PUT', body: file });
       logLine('admin', `Uploaded voice note: ${file.name}`);
       setDropzoneState('done', `✅ Uploaded ${file.name}`);
-
     } catch (e) {
       logLine('error', `Failed to upload ${file.name}.`);
       setDropzoneState('error', `❌ Upload failed for ${file.name}`);
     } finally {
       fetchPackageList();
       loadPackageTable();
-
-      setTimeout(() => {
-        setDropzoneState('idle');
-      }, 2500);
+      setTimeout(() => { setDropzoneState('idle'); }, 2500);
     }
   }
 
   uploadDropzone.addEventListener('click', () => uploadFileInput.click());
-
   uploadDropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadDropzone.classList.add('dragover');
   });
-
   uploadDropzone.addEventListener('dragleave', () => {
     uploadDropzone.classList.remove('dragover');
   });
-
   uploadDropzone.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadDropzone.classList.remove('dragover');
     const file = e.dataTransfer.files && e.dataTransfer.files[0];
     if (file) uploadAudioFile(file);
   });
-
   uploadFileInput.addEventListener('change', () => {
     const file = uploadFileInput.files && uploadFileInput.files[0];
     if (file) uploadAudioFile(file);
     uploadFileInput.value = '';
   });
-
   refreshListBtn.addEventListener('click', () => {
     loadPackageTable();
   });
 
   loadPackageTable();
   positionExtraPanel();
-
-  // FIX 3: Force the browser to apply scroll logic to the new table wrapper
-  window.addEventListener('DOMContentLoaded', () => {
-      const tableWrap = document.querySelector('.package-table-wrap');
-      if (tableWrap) {
-          tableWrap.style.maxHeight = '250px';
-          tableWrap.style.overflowY = 'scroll';
-          tableWrap.style.display = 'block';
-          tableWrap.style.width = '100%';
-      }
-  });
-
 </script>
 
 </body>
