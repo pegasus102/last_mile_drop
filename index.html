@@ -704,16 +704,21 @@
   </div>
 
 <style>
-  /* FIX 1: Brute-force the scrollbar so no other CSS can override it */
+  /* FIX: Dynamic height and padding to prevent bottom cutoff */
   .package-table-wrap {
-    max-height: 250px !important;
+    max-height: 40vh !important; /* Takes up exactly 40% of the screen height, no more */
+    min-height: 150px !important;
     overflow-y: auto !important;
     display: block !important;
     width: 100% !important;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 20px !important; /* Creates physical scroll space below the last row */
+    margin-bottom: 30px !important; /* Lifts the whole box away from the bottom edge */
   }
+  
   .package-table {
     width: 100% !important;
+    margin-bottom: 10px !important; 
   }
 </style>
 
