@@ -61,7 +61,7 @@ Resources:
           Type: Api
           Properties:
             Path: /
-            Method: post
+            Method: ANY
 
 Outputs:
   VoiceAudioBucketName:
