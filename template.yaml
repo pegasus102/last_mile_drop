@@ -3,10 +3,16 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   Last-Mile Whisper - Geo-fenced voice landmark processing infrastructure.
 
+Parameters:
+  GeminiApiKey:
+    Type: String
+    Description: API Key for Google Gemini Multimodal Processing
+    NoEcho: true
+
 Globals:
   Function:
     Timeout: 30
-    Runtime: python3.11
+    Runtime: python3.12
 
 Resources:
 
@@ -28,17 +34,23 @@ Resources:
     Properties:
       FunctionName: WhisperProcessor
       Handler: index.lambda_handler
-      Runtime: python3.11
+      Runtime: python3.12
       CodeUri: src/
       Timeout: 30
       Environment:
         Variables:
           TABLE_NAME: !Ref DeliveriesTable
+          GEMINI_API_KEY: !Ref GeminiApiKey
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DeliveriesTable
         - S3ReadPolicy:
             BucketName: lastmile-whisper-voice-audio
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: "*"
       Events:
         VoiceUploadEvent:
           Type: S3
