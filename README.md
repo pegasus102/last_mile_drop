@@ -2,6 +2,7 @@
 
 **Zero-Friction, Geo-Fenced Voice Landmarks & Multimodal TTS Delivery Infrastructure for Hyper-Local Logistics in India.**
 
+🚀 **Live App URL:** [https://main.duyq18bdmhxrs.amplifyapp.com/](https://main.duyq18bdmhxrs.amplifyapp.com/)
 ---
 
 ## 🧩 Problem Statement

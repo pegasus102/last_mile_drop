@@ -10,6 +10,8 @@ from bedrock_extractor import extract_landmarks
 from cedar_evaluator import evaluate_cedar_policy
 
 import base64
+from google import genai
+from bedrock_extractor import SYSTEM_PROMPT, _ensure_schema
 
 
 def _handle_synthesize_speech(payload):
@@ -62,7 +64,7 @@ TABLE_NAME = os.environ.get("TABLE_NAME", "Deliveries")
 
 # S3 bucket used for customer voice-note uploads (same bucket the S3
 # ObjectCreated trigger above is wired to in template.yaml).
-BUCKET_NAME = os.environ.get("BUCKET_NAME", "last-mile-whisper-voice-notes")
+BUCKET_NAME = os.environ.get("BUCKET_NAME", "lastmile-whisper-voice-audio")
 S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL")
 
 MAX_PING_COUNT = 2
@@ -154,31 +156,61 @@ def _parse_api_body(event: dict) -> dict:
 def _process_s3_upload(event: dict) -> dict:
     """
     Handles S3 ObjectCreated events for uploaded customer voice notes.
-
-    For each S3 record:
-      1. Extracts package_id from the object key.
-      2. Runs Bedrock landmark extraction on the voice transcript.
-      3. Persists the delivery state (landmarks + doorbell defaults) to DynamoDB.
+    Downloads the audio, sends it to Gemini, extracts landmarks, and saves to DynamoDB.
     """
+    import os
+    import json
+    from google import genai
+    from bedrock_extractor import SYSTEM_PROMPT, _ensure_schema
+    
     records = event.get("Records", [])
     table = _get_dynamodb_table()
+    s3_client = _get_s3_client()
     processed_package_ids = []
+
+    # Initialize Gemini Client
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     for record in records:
         try:
             s3_info = record.get("s3", {})
             object_key = s3_info.get("object", {}).get("key", "")
+            bucket_name = s3_info.get("bucket", {}).get("name", BUCKET_NAME)
 
             if not object_key:
                 logger.warning("Record missing S3 object key: %s", record)
                 continue
 
             package_id = _extract_package_id_from_key(object_key)
+            
+            # 1. Download the audio file from S3 to Lambda's /tmp directory
+            local_file_path = f"/tmp/{package_id}.m4a"
+            logger.info("Downloading %s from %s to %s", object_key, bucket_name, local_file_path)
+            s3_client.download_file(bucket_name, object_key, local_file_path)
 
-            # TODO: Replace SAMPLE_TRANSCRIPT with real transcribed audio text
-            # once speech-to-text ingestion is wired into the pipeline.
-            landmarks = extract_landmarks(SAMPLE_TRANSCRIPT)
+            # 2. Upload audio to Gemini
+            logger.info("Uploading %s to Gemini...", local_file_path)
+            audio_file = client.files.upload(
+               file=local_file_path, 
+               config={"mime_type": "audio/mp4"}
+            )
+            
+            # 3. Prompt Gemini
+            prompt = f"{SYSTEM_PROMPT}\n\nPlease listen to the provided customer voice note and extract the navigation details."
+            response = client.models.generate_content(
+                model="gemini-3.1-flash-lite", 
+                contents=[prompt, audio_file]
+            )
+            
+            # 4. Clean and parse JSON response
+            cleaned = response.text.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.strip("`").replace("json", "", 1).strip()
+                
+            parsed = json.loads(cleaned)
+            landmarks = _ensure_schema(parsed)
 
+            # 5. Save the REAL extracted data to DynamoDB
             item = {
                 "package_id": package_id,
                 "landmarks": landmarks,
@@ -190,7 +222,7 @@ def _process_s3_upload(event: dict) -> dict:
             table.put_item(Item=item)
             processed_package_ids.append(package_id)
 
-            logger.info("Processed voice note for package_id=%s", package_id)
+            logger.info("Successfully processed real voice note for package_id=%s", package_id)
 
         except Exception:
             logger.exception("Failed to process S3 record: %s", record)
@@ -202,7 +234,6 @@ def _process_s3_upload(event: dict) -> dict:
             "processed_package_ids": processed_package_ids,
         },
     )
-
 
 def _handle_fetch_hud(payload: dict) -> dict:
     """
