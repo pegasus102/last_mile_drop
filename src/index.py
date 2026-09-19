@@ -99,10 +99,15 @@ def _extract_package_id_from_key(object_key: str) -> str:
 
 
 def _response(status_code: int, body: dict) -> dict:
-    """Build a standard API Gateway proxy-style response."""
+    """Build a standard API Gateway proxy-style response with CORS headers."""
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+            "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+        },
         "body": json.dumps(body),
     }
 
@@ -324,6 +329,24 @@ def lambda_handler(event, context):
     2. API Gateway JSON requests (Driver HUD fetch and Digital Doorbell pings),
        distinguished by an "action" field of "FETCH_HUD" or "PING_DOORBELL".
     """
+    # 1. Define standard CORS headers required by browsers
+    cors_headers = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+        "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+    }
+
+    # 2. Handle browser preflight OPTIONS request instantly
+    http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+    if http_method == "OPTIONS":
+        return {
+            "statusCode": 200,
+            "headers": cors_headers,
+            "body": json.dumps({"message": "Preflight successful"})
+        }
+
+    # 3. Check for S3 upload events
     if isinstance(event, dict) and event.get("Records"):
         return _process_s3_upload(event)
 
@@ -343,4 +366,4 @@ def lambda_handler(event, context):
         return _handle_synthesize_speech(payload)
 
     logger.warning("Unrecognized event/action: %s", json.dumps(event, default=str))
-    return _response(400, {"error": f"Unrecognized action: {action}"})
+    return _response(400, {"error": f"Unrecognized action: {action}"}, cors_headers)
