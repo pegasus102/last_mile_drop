@@ -328,6 +328,22 @@
     display: flex;
   }
 
+  /* Driver Text-to-Speech Button */
+
+  .btn-tts {
+    background: var(--accent-purple-dim);
+    color: var(--accent-purple);
+    border: 1px solid #a9d3da;
+    margin-top: 12px;
+    width: 100%;
+  }
+
+  .btn-tts.speaking {
+    background: var(--accent-purple);
+    color: #ffffff;
+    border-color: #005a6b;
+  }
+
   .dnc-warning {
     background: #fdf0f0;
     color: var(--accent-red);
@@ -499,6 +515,9 @@
       <div id="route-content" class="route-container">
         <span class="tag-placeholder">Route Details Hidden —</span>
       </div>
+      <button class="hud-btn btn-tts" id="tts-btn" style="display: none;">
+        🔊 Listen to Route
+      </button>
     </section>
 
     <section class="card" id="doorbell-section">
@@ -536,6 +555,7 @@
     <select id="package-select">
       <option value="">Loading packages…</option>
     </select>
+    <audio id="admin-audio-player" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
     <button id="refresh-list-btn">🔄 Refresh List</button>
     <p class="admin-panel-note">Switches the mobile HUD's active delivery for demo purposes.</p>
   </div>
@@ -551,6 +571,8 @@
   const statusLog = document.getElementById('status-log');
   const packageSelect = document.getElementById('package-select');
   const refreshListBtn = document.getElementById('refresh-list-btn');
+  const ttsBtn = document.getElementById('tts-btn');
+  const adminAudioPlayer = document.getElementById('admin-audio-player');
 
   const CHIME_DURATION_SECONDS = 30;
   const MAX_PINGS = 2;
@@ -599,6 +621,8 @@
 
   // Fetch real extracted landmarks from backend on load.
   async function loadDeliveryData(packageId) {
+    // A package switch invalidates whatever route audio was queued/playing.
+    stopRouteAudio();
     try {
       if (packageId) {
         const response = await fetch(API_ENDPOINT, {
@@ -630,6 +654,87 @@
     }
   }
 
+  // FEATURE 1: Driver Text-to-Speech (HUD) — backed by Amazon Polly via the backend
+
+  let currentRouteAudio = null; // Audio object currently playing, if any
+
+  function resetTtsButton() {
+    ttsBtn.classList.remove('speaking');
+    ttsBtn.disabled = false;
+    ttsBtn.innerHTML = '🔊 Listen to Route';
+  }
+
+  function stopRouteAudio() {
+    if (currentRouteAudio) {
+      currentRouteAudio.pause();
+      currentRouteAudio.currentTime = 0;
+      currentRouteAudio = null;
+    }
+    resetTtsButton();
+  }
+
+  function updateTtsButton(unlocked) {
+    const hasScript = unlocked && fetchedLandmarks && fetchedLandmarks.driver_audio_script;
+    if (hasScript) {
+      ttsBtn.style.display = 'flex';
+      ttsBtn.disabled = false;
+    } else {
+      stopRouteAudio();
+      ttsBtn.style.display = 'none';
+      ttsBtn.disabled = true;
+    }
+  }
+
+  async function toggleRouteAudio() {
+    // If audio is already playing, treat the click as a stop action.
+    if (currentRouteAudio) {
+      stopRouteAudio();
+      logLine('audio', 'Route narration stopped by driver.');
+      return;
+    }
+
+    if (!fetchedLandmarks || !fetchedLandmarks.driver_audio_script) return;
+
+    ttsBtn.disabled = true;
+    ttsBtn.innerHTML = '⏳ Generating...';
+
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SYNTHESIZE_SPEECH',
+          text: fetchedLandmarks.driver_audio_script,
+        }),
+      });
+      const data = await response.json();
+
+      currentRouteAudio = new Audio('data:audio/mp3;base64,' + data.audio_base64);
+
+      currentRouteAudio.onended = () => {
+        currentRouteAudio = null;
+        resetTtsButton();
+      };
+      currentRouteAudio.onerror = () => {
+        currentRouteAudio = null;
+        resetTtsButton();
+        logLine('error', 'Failed to play synthesized route audio.');
+      };
+
+      await currentRouteAudio.play();
+
+      ttsBtn.disabled = false;
+      ttsBtn.classList.add('speaking');
+      ttsBtn.innerHTML = '⏹️ Stop Audio';
+      logLine('audio', 'Playing Polly-synthesized route narration.');
+
+    } catch (e) {
+      currentRouteAudio = null;
+      resetTtsButton();
+      logLine('error', 'Failed to synthesize route audio.');
+    }
+  }
+
   function logLine(tag, message) {
     const line = document.createElement('div');
     line.className = 'log-line';
@@ -643,10 +748,14 @@
 
     if (!unlocked) {
       routeContent.innerHTML = '<span class="tag-placeholder">Route Details Hidden —</span>';
+      updateTtsButton(false);
       return;
     }
 
-    if (!fetchedLandmarks) return;
+    if (!fetchedLandmarks) {
+      updateTtsButton(false);
+      return;
+    }
 
     // 1. Waypoints List
     if (fetchedLandmarks.waypoints && fetchedLandmarks.waypoints.length > 0) {
@@ -686,6 +795,9 @@
       instBox.innerHTML = `⚠️ <b>Notes:</b> ${fetchedLandmarks.special_instructions}`;
       routeContent.appendChild(instBox);
     }
+
+    // 4. Sync the "Listen to Route" button to the current script availability.
+    updateTtsButton(true);
   }
 
   function setDoorbellState(state) {
@@ -815,13 +927,29 @@
     logLine('call', 'Placing masked direct call to customer...');
   }
 
+  // FEATURE 2: Raw Audio Preview (Admin Panel)
+  function updateAdminAudioPlayer(packageId) {
+    if (packageId) {
+      adminAudioPlayer.src = `audio/${packageId}.m4a`;
+      adminAudioPlayer.style.display = 'block';
+      adminAudioPlayer.load();
+    } else {
+      adminAudioPlayer.pause();
+      adminAudioPlayer.removeAttribute('src');
+      adminAudioPlayer.load();
+      adminAudioPlayer.style.display = 'none';
+    }
+  }
+
   distanceInput.addEventListener('input', updateHUD);
   pingBtn.addEventListener('click', pingDoorbell);
   callBtn.addEventListener('click', callCustomer);
+  ttsBtn.addEventListener('click', toggleRouteAudio);
 
   // Admin Simulator Panel wiring
   packageSelect.addEventListener('change', async () => {
     const selectedId = packageSelect.value;
+    updateAdminAudioPlayer(selectedId);
     if (!selectedId) return;
     logLine('admin', `Switching simulator to package: ${selectedId}`);
     await loadDeliveryData(selectedId);

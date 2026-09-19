@@ -8,6 +8,50 @@ import boto3
 from bedrock_extractor import extract_landmarks
 from cedar_evaluator import evaluate_cedar_policy
 
+import base64
+
+
+def _handle_synthesize_speech(payload):
+    text_to_speak = payload.get("text")
+    if not text_to_speak:
+        return _response(400, {"error": "Missing text parameter"})
+    
+    try:
+        region = os.environ.get("REAL_AWS_REGION", os.environ.get("AWS_REGION", "us-east-1"))
+        
+        # Determine execution environment: AWS Cloud vs Local Emulation
+        access_key = os.environ.get("REAL_AWS_ACCESS_KEY_ID") or os.environ.get("AWS_ACCESS_KEY_ID")
+        secret_key = os.environ.get("REAL_AWS_SECRET_ACCESS_KEY") or os.environ.get("AWS_SECRET_ACCESS_KEY")
+        
+        polly_kwargs = {"region_name": region}
+        
+        # If running locally with specific IAM credentials, pass them explicitly
+        if access_key and access_key != "test":
+            polly_kwargs["aws_access_key_id"] = access_key
+            polly_kwargs["aws_secret_access_key"] = secret_key
+            if os.environ.get("AWS_SESSION_TOKEN"):
+                polly_kwargs["aws_session_token"] = os.environ["AWS_SESSION_TOKEN"]
+        
+        # In actual AWS Lambda deployment, Boto3 auto-discovers execution role credentials
+        polly = boto3.client("polly", **polly_kwargs)
+        
+        polly_response = polly.synthesize_speech(
+            Text=text_to_speak,
+            OutputFormat="mp3",
+            VoiceId="Kajal",
+            Engine="neural"
+        )
+        
+        audio_stream = polly_response["AudioStream"].read()
+        audio_b64 = base64.b64encode(audio_stream).decode("utf-8")
+        
+        return _response(200, {"audio_base64": audio_b64})
+        
+    except Exception as e:
+        logger.error("Polly error: %s", e)
+        return _response(500, {"error": f"Failed to generate audio: {str(e)}"})
+
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -294,6 +338,9 @@ def lambda_handler(event, context):
 
     if action == "LIST_DELIVERIES":
         return _handle_list_deliveries(payload)
+        
+    if action == "SYNTHESIZE_SPEECH":
+        return _handle_synthesize_speech(payload)
 
     logger.warning("Unrecognized event/action: %s", json.dumps(event, default=str))
     return _response(400, {"error": f"Unrecognized action: {action}"})

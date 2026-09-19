@@ -1,1 +1,4 @@
 .env
+.aws-sam/
+__pycache__/
+*.pyc

@@ -3,15 +3,21 @@ import socketserver
 import json
 import os
 import sys
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 # Ensure LocalStack targets are set
-os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-os.environ["AWS_ACCESS_KEY_ID"] = "test"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "test"
-os.environ["DYNAMODB_ENDPOINT_URL"] = "http://localhost:4566"
-os.environ["TABLE_NAME"] = "Deliveries"
+# Ensure LocalStack default targets for DynamoDB
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+os.environ.setdefault("DYNAMODB_ENDPOINT_URL", "http://localhost:4566")
+os.environ.setdefault("TABLE_NAME", "Deliveries")
 
-sys.path.insert(0, '.aws-sam/build/WhisperProcessor')
+# Set fallback dummy keys ONLY if no real AWS keys exist in the environment
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "test")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test")
+
+sys.path.insert(0, 'src')
 from index import lambda_handler
 
 class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
