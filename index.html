@@ -1057,12 +1057,12 @@
   function updateAdminAudioPlayer(packageId) {
     if (packageId) {
       if (packageId.startsWith('pkg_upload_')) {
-        // It's a new upload, pull from S3
-        const objectKey = packageId.includes('.') ? packageId : `${packageId}.m4a`;
-        adminAudioPlayer.src = `[https://lastmile-whisper-voice-audio.s3.amazonaws.com/$](https://lastmile-whisper-voice-audio.s3.amazonaws.com/$){objectKey}`;
+        // It's a new upload, pull from S3 using standard string addition
+        const objectKey = packageId.includes('.') ? packageId : packageId + '.m4a';
+        adminAudioPlayer.src = 'https://lastmile-whisper-voice-audio.s3.amazonaws.com/' + objectKey;
       } else {
-        // It's an old test file, pull from local folder
-        adminAudioPlayer.src = `audio/${packageId}.m4a`;
+        // It's an old test file, pull from local folder using standard string addition
+        adminAudioPlayer.src = 'audio/' + packageId + '.m4a';
       }
       adminAudioPlayer.style.display = 'block';
       adminAudioPlayer.load();
@@ -1073,7 +1073,7 @@
       adminAudioPlayer.style.display = 'none';
     }
   }
-
+  
   distanceInput.addEventListener('input', updateHUD);
   pingBtn.addEventListener('click', pingDoorbell);
   callBtn.addEventListener('click', callCustomer);
