@@ -15,7 +15,7 @@ def process_all_audio_files():
     dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url, region_name="us-east-1")
     table = dynamodb.Table("Deliveries")
     
-    packages = ["pkg_test_001", "pkg_test_002", "pkg_test_003", "pkg_test_004", "pkg_test_005"]
+    packages = ["pkg_test_001", "pkg_test_002", "pkg_test_003", "pkg_test_004"]
     
     for pkg_id in packages:
         file_path = f"audio/{pkg_id}.m4a"
