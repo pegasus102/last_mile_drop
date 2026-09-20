@@ -258,9 +258,10 @@ Illustrative calculation for one delivery, using the rates and assumptions in th
 | Gemini | 400 input tokens and 175 output tokens at the stated model rates | ~$0.00036 |
 | **Estimated total** | **if Polly is used for every delivery** | **~$0.0048–$0.0049** |
 
-The biggest variable is Polly usage. If drivers request narration only for some deliveries, use the actual playback rate rather than charging every delivery for TTS.
-
-At 300,000 deliveries per month and 275 Polly characters per delivery, the model corresponds to approximately 82.5 million Polly characters and roughly **$1,444/month for the listed per-delivery assumptions**. This excludes taxes, support plans, data transfer, retries, logs, monitoring, reserved capacity, and any changes to provider pricing. Treat this as a planning estimate, not an invoice forecast.
+> **💡 Note on Cost Projections & Real-World Variability**  
+> The largest cost variable at scale is Amazon Polly usage. The projection above assumes a 100% TTS request rate (275 characters per delivery), yielding ~82.5 million Polly characters and a strict upper-bound cost of ~$1,444/month for 300,000 deliveries. In a production environment, drivers will only request narration for a fraction of deliveries, which would significantly reduce this line item. 
+> 
+> *Disclaimer: This model serves as an architectural planning estimate rather than a definitive invoice forecast. It strictly calculates primary compute and API utilization, excluding secondary AWS overhead such as CloudWatch logs, data transfer/egress, system retries, support plans, taxes, and future provider pricing adjustments.*
 
 ---
 
