@@ -689,7 +689,10 @@
 
     <label class="admin-field-label">Upload Voice Note</label>
     <div id="upload-dropzone" class="upload-dropzone">
-      <input type="file" id="upload-file-input" accept=".m4a,.mp3,.wav,audio/*" hidden>
+      <input type="file" id="upload-file-input" accept=".m4a,audio/mp4,audio/x-m4a,audio/m4a" hidden>
+        <small style="color: #888; display: block; margin-top: 4px;">
+          Supported Format: <strong>.m4a</strong> (Standard mobile voice note)
+        </small>
       <div id="upload-dropzone-text" class="upload-dropzone-text">
         <span class="upload-icon">⬆️</span>
         <span>Drag &amp; drop audio file here<br>or click to browse</span>
