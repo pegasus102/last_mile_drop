@@ -1164,7 +1164,12 @@
         body: JSON.stringify({ action: 'LIST_DELIVERIES' }),
       });
       const data = await response.json();
-      renderPackageTable(data.package_ids || []);
+        const sortedPackageIds = (data.package_ids || []).slice().sort((a, b) => {
+        const numA = parseInt((a.match(/(\d+)$/) || [0, 0])[1], 10);
+        const numB = parseInt((b.match(/(\d+)$/) || [0, 0])[1], 10);
+        return numB - numA;
+      });
+      renderPackageTable(sortedPackageIds);
     } catch (e) {
       logLine('error', 'Failed to load package management table.');
     } finally {
