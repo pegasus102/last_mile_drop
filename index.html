@@ -481,11 +481,7 @@
     margin: 10px 0 0;
   }
 
-  @media (max-width: 900px) {
-    .admin-panel {
-      display: none;
-    }
-  }
+  
 
   /* ============================================================
      NEW: Audio Upload Zone + Package Management Table
@@ -596,8 +592,18 @@
   }
 
   @media (max-width: 900px) {
+    .admin-panel {
+      position: static;
+      top: auto;
+      right: auto;
+      width: calc(100% - 32px);
+      max-width: 480px;
+      margin: 20px auto 0;
+      box-sizing: border-box;
+    }
+
     #extra-admin-panel {
-      display: none;
+      visibility: visible;
     }
   }
 
@@ -752,7 +758,11 @@
         body: JSON.stringify({ action: 'LIST_DELIVERIES' }),
       });
       const data = await response.json();
-      const packageIds = data.package_ids || [];
+       const packageIds = (data.package_ids || []).slice().sort((a, b) => {
+       const numA = parseInt((a.match(/(\d+)$/) || [0, 0])[1], 10);
+       const numB = parseInt((b.match(/(\d+)$/) || [0, 0])[1], 10);
+       return numB - numA;
+      });
 
       packageSelect.innerHTML = '';
 
